@@ -35,7 +35,7 @@ enum SwiftKnownModule: String {
   var sourceFile: SourceFileSyntax {
     return switch self {
     case .swift: swiftSourceFile
-    case .foundation: foundationEssentialsSourceFile
+    case .foundation: foundationSourceFile
     case .foundationEssentials: foundationEssentialsSourceFile
     }
   }
