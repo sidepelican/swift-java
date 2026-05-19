@@ -53,6 +53,40 @@ struct JavaKeywordTests {
   }
 
   @Test
+  func functionArgument() throws {
+    let text =
+      """
+      public func foo(const: Int) {}
+      """
+
+    try assertOutput(
+      input: text,
+      .jni,
+      .java,
+      detectChunkByInitialLines: 2,
+      expectedChunks: [
+        """
+        public static void foo(long const_) throws SwiftIntegerOverflowException {
+           SwiftModule.$foo(const_);
+        }
+        private static native void $foo(long const_);
+        """
+      ]
+    )
+
+    try assertOutput(
+      input: text,
+      .jni,
+      .swift,
+      expectedChunks: [
+        """
+        public func Java_com_example_swift_SwiftModule__00024foo__J(environment: UnsafeMutablePointer<JNIEnv?>!, thisClass: jclass, const_: jlong) {
+        """
+      ]
+    )
+  }
+
+  @Test
   func enumCase() throws {
     let text =
       """

@@ -73,15 +73,13 @@ struct JavaParameter {
   let annotations: [JavaAnnotation]
 
   init(name: String, type: ParameterType, annotations: [JavaAnnotation] = []) {
-    self.name = name
+    self.name = JavaIdentifierFactory.makeJavaIdentifier(name)
     self.type = type
     self.annotations = annotations
   }
 
   init(name: String, type: JavaType, annotations: [JavaAnnotation] = []) {
-    self.name = name
-    self.type = .concrete(type)
-    self.annotations = annotations
+    self.init(name: name, type: .concrete(type), annotations: annotations)
   }
 
   func renderParameter() -> String {

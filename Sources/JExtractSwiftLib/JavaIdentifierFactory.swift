@@ -75,6 +75,13 @@ package struct JavaIdentifierFactory {
     return methodName
   }
 
+  package static func makeJavaIdentifier(_ identifier: String) -> String {
+    if javaKeywords.contains(identifier) {
+      return identifier + "_"
+    }
+    return identifier
+  }
+
   private func paramsSuffix(_ decl: ImportedFunc, baseName: String) -> String {
     switch decl.apiKind {
     case .getter, .subscriptGetter, .setter, .subscriptSetter:
