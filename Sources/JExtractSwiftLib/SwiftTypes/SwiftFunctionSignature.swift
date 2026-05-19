@@ -89,6 +89,19 @@ enum SwiftSelfParameter: Equatable {
 }
 
 extension SwiftFunctionSignature {
+  func substituting(genericParameters substitutions: [String: SwiftType]) -> SwiftFunctionSignature {
+    guard !substitutions.isEmpty else { return self }
+
+    return SwiftFunctionSignature(
+      selfParameter: selfParameter?.substituting(genericParameters: substitutions),
+      parameters: parameters.map { $0.substituting(genericParameters: substitutions) },
+      result: result.substituting(genericParameters: substitutions),
+      effectSpecifiers: effectSpecifiers,
+      genericParameters: genericParameters,
+      genericRequirements: genericRequirements.map { $0.substituting(genericParameters: substitutions) }
+    )
+  }
+
   init(
     _ node: InitializerDeclSyntax,
     enclosingType: SwiftType?,
@@ -434,6 +447,53 @@ extension SwiftFunctionSignature {
       }
     } else {
       return nil
+    }
+  }
+}
+
+extension SwiftSelfParameter {
+  fileprivate func substituting(genericParameters substitutions: [String: SwiftType]) -> SwiftSelfParameter {
+    switch self {
+    case .instance(let convention, let swiftType):
+      .instance(convention: convention, swiftType: swiftType.substituting(genericParameters: substitutions))
+    case .staticMethod(let swiftType):
+      .staticMethod(swiftType.substituting(genericParameters: substitutions))
+    case .initializer(let swiftType):
+      .initializer(swiftType.substituting(genericParameters: substitutions))
+    }
+  }
+}
+
+extension SwiftParameter {
+  fileprivate func substituting(genericParameters substitutions: [String: SwiftType]) -> SwiftParameter {
+    var parameter = self
+    parameter.type = parameter.type.substituting(genericParameters: substitutions)
+    return parameter
+  }
+}
+
+extension SwiftResult {
+  fileprivate func substituting(genericParameters substitutions: [String: SwiftType]) -> SwiftResult {
+    SwiftResult(
+      convention: convention,
+      type: type.substituting(genericParameters: substitutions)
+    )
+  }
+}
+
+extension SwiftGenericRequirement {
+  fileprivate func substituting(genericParameters substitutions: [String: SwiftType]) -> SwiftGenericRequirement {
+    switch self {
+    case .inherits(let lhs, let rhs):
+      .inherits(
+        lhs.substituting(genericParameters: substitutions),
+        rhs.substituting(genericParameters: substitutions)
+      )
+    case .equals(let lhs, let rhs):
+      .equals(
+        lhs.substituting(genericParameters: substitutions),
+        rhs.substituting(genericParameters: substitutions)
+      )
     }
   }
 }

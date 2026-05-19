@@ -500,14 +500,17 @@ final class Swift2JavaVisitor {
     let javaName = node.name.text
     let rhsType = node.initializer.value
 
-    let genericArgs: [String]
-    if let identType = rhsType.as(IdentifierTypeSyntax.self) {
-      genericArgs = identType.genericArgumentClause?.arguments.compactMap { $0.argument.trimmedDescription } ?? []
-    } else if let memberType = rhsType.as(MemberTypeSyntax.self) {
-      genericArgs = memberType.genericArgumentClause?.arguments.compactMap { $0.argument.trimmedDescription } ?? []
-    } else {
-      return
-    }
+    let genericArgumentClause = rhsType.as(IdentifierTypeSyntax.self)?.genericArgumentClause
+    ?? rhsType.as(MemberTypeSyntax.self)?.genericArgumentClause
+
+    let genericArgs: [SwiftType] = genericArgumentClause?.arguments.compactMap { arg in
+      guard let typeSyntax = arg.argument.as(TypeSyntax.self),
+            let swiftType = try? SwiftType(typeSyntax, lookupContext: translator.lookupContext)
+      else {
+        return nil
+      }
+      return swiftType
+    } ?? []
 
     // Only register as specialization if the RHS has generic arguments
     guard !genericArgs.isEmpty else { return }
@@ -530,11 +533,11 @@ final class Swift2JavaVisitor {
   private func registerSpecialization(
     javaName: String,
     baseType: ImportedNominalType,
-    genericArgs: [String],
+    genericArgs: [SwiftType],
     rhsDescription: String,
   ) {
     // Build substitutions dict from the generic parameters
-    var substitutions: [String: String] = [:]
+    var substitutions: [String: SwiftType] = [:]
     if baseType.swiftNominal.isGeneric {
       let genericParams = baseType.swiftNominal.genericParameters.map { $0.name }
       for (i, param) in genericParams.enumerated() {
@@ -667,12 +670,12 @@ final class Swift2JavaVisitor {
     for constraint in constraints {
       switch constraint {
       case .sameType(let first, let second):
-        if specialized.genericArguments[first] == second { continue }
-        if specialized.genericArguments[second] == first { continue }
+        if specialized.genericArguments[first]?.description == second { continue }
+        if specialized.genericArguments[second]?.description == first { continue }
         return false
 
       case .conformance(let typeParam, let proto):
-        guard let concreteName = specialized.genericArguments[typeParam] else {
+        guard let concreteName = specialized.genericArguments[typeParam]?.description else {
           return false
         }
         guard let concreteType = translator.importedTypes[concreteName] else {

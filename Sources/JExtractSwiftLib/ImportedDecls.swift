@@ -71,7 +71,7 @@ package final class ImportedNominalType: ImportedDecl {
 
   /// Maps generic parameter -> concrete type argument. Empty for unspecialized types
   /// e.g. {"Element": "Fish"} for FishBox
-  package var genericArguments: [String: String] = [:]
+  var genericArguments: [String: SwiftType] = [:]
 
   /// True when all generic parameters have corresponding arguments
   package var isFullySpecialized: Bool {
@@ -90,7 +90,7 @@ package final class ImportedNominalType: ImportedDecl {
   }
 
   /// Init for creating a specialization
-  private init(base: ImportedNominalType, specializedTypeName: String, genericArguments: [String: String]) {
+  private init(base: ImportedNominalType, specializedTypeName: String, genericArguments: [String: SwiftType]) {
     self.swiftNominal = base.swiftNominal
     self.specializationBaseType = base
 
@@ -107,10 +107,18 @@ package final class ImportedNominalType: ImportedDecl {
         genericArguments: []
       )
     )
-    self.initializers = base.initializers.map { $0.clone(for: selfType) }
-    self.methods = base.methods.map { $0.clone(for: selfType) }
-    self.variables = base.variables.map { $0.clone(for: selfType) }
-    self.cases = base.cases.map { $0.clone(for: selfType) }
+    self.initializers = base.initializers.map {
+      $0.clone(for: selfType, substituting: genericArguments)
+    }
+    self.methods = base.methods.map {
+      $0.clone(for: selfType, substituting: genericArguments)
+    }
+    self.variables = base.variables.map {
+      $0.clone(for: selfType, substituting: genericArguments)
+    }
+    self.cases = base.cases.map {
+      $0.clone(for: selfType, substituting: genericArguments)
+    }
     self.inheritedTypes = base.inheritedTypes
     self.parent = base.parent
 
@@ -145,7 +153,7 @@ package final class ImportedNominalType: ImportedDecl {
     guard !genericArguments.isEmpty else { return baseTypeName }
     let orderedArgs = genericParameterNames.compactMap { genericArguments[$0] }
     guard !orderedArgs.isEmpty else { return baseTypeName }
-    return "\(baseTypeName)<\(orderedArgs.joined(separator: ", "))>"
+    return "\(baseTypeName)<\(orderedArgs.map(\.description).joined(separator: ", "))>"
   }
 
   var qualifiedName: String {
@@ -164,9 +172,9 @@ package final class ImportedNominalType: ImportedDecl {
   }
 
   /// Create a specialized version of this generic type
-  package func specialize(
+  func specialize(
     as specializedName: String,
-    with substitutions: [String: String],
+    with substitutions: [String: SwiftType],
   ) throws -> ImportedNominalType {
     guard !genericParameterNames.isEmpty else {
       throw SpecializationError(
@@ -247,13 +255,19 @@ public final class ImportedEnumCase: ImportedDecl, CustomStringConvertible {
     """
   }
 
-  func clone(for parent: SwiftType) -> ImportedEnumCase {
+  func clone(
+    for parent: SwiftType,
+    substituting substitutions: [String: SwiftType]
+  ) -> ImportedEnumCase {
     ImportedEnumCase(
       name: name,
       parameters: parameters,
       swiftDecl: swiftDecl,
       enumType: enumType,
-      caseFunction: caseFunction.clone(for: parent)
+      caseFunction: caseFunction.clone(
+        for: parent,
+        substituting: substitutions
+      )
     )
   }
 }
@@ -365,8 +379,11 @@ public final class ImportedFunc: ImportedDecl, CustomStringConvertible {
     """
   }
 
-  func clone(for parent: SwiftType) -> ImportedFunc {
-    var functionSignature = functionSignature
+  func clone(
+    for parent: SwiftType,
+    substituting substitutions: [String: SwiftType]
+  ) -> ImportedFunc {
+    var functionSignature = functionSignature.substituting(genericParameters: substitutions)
     assert(functionSignature.selfParameter?.selfType != nil)
     functionSignature.selfParameter?.selfType = parent
     return ImportedFunc(

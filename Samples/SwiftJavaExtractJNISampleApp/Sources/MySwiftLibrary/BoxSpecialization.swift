@@ -22,6 +22,10 @@ public struct Box<Element>: Hashable {
   public static func describeElement() -> String {
     String(describing: Element.self)
   }
+
+  public static func roundtrip(box: Box<Element>) -> Box<Element> {
+    box
+  }
 }
 
 public struct Fish: Hashable {

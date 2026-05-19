@@ -104,13 +104,13 @@ struct SpecializationTests {
 
     // Verify new generic-model properties
     #expect(fishBox.genericParameterNames == ["Element"])
-    #expect(fishBox.genericArguments == ["Element": "Fish"])
+    #expect(fishBox.genericArguments.mapValues(\.description) == ["Element": "Fish"])
     #expect(fishBox.isFullySpecialized)
     #expect(fishBox.baseTypeName == "Box")
     #expect(fishBox.specializedTypeName == "FishBox")
 
     #expect(toolBox.genericParameterNames == ["Element"])
-    #expect(toolBox.genericArguments == ["Element": "Tool"])
+    #expect(toolBox.genericArguments.mapValues(\.description) == ["Element": "Tool"])
     #expect(toolBox.isFullySpecialized)
     #expect(toolBox.baseTypeName == "Box")
     #expect(toolBox.specializedTypeName == "ToolBox")
@@ -152,7 +152,7 @@ struct SpecializationTests {
       input: multiSpecializationInput,
       .jni,
       .java,
-      detectChunkByInitialLines: 1,
+      detectChunkByInitialLines: 2,
       expectedChunks: [
         // Class declaration
         "public final class FishBox implements JNISwiftInstance {",
@@ -180,7 +180,7 @@ struct SpecializationTests {
       input: multiSpecializationInput,
       .jni,
       .java,
-      detectChunkByInitialLines: 1,
+      detectChunkByInitialLines: 2,
       expectedChunks: [
         // Class declaration
         "public final class ToolBox implements JNISwiftInstance {",
@@ -217,6 +217,10 @@ struct SpecializationTests {
         public static func elementDescription() -> String {
           return "\(Element.self)"
         }
+
+        public static func make() -> Box<Element> {
+          .init()
+        }
       }
 
       public struct Fish {
@@ -244,6 +248,14 @@ struct SpecializationTests {
           return FishBox.$elementDescription($typeMetadataAddressDowncall());
         }
         private static native java.lang.String $elementDescription(long selfTypePointer);
+        """,
+        """
+        public static Box<Fish> make(SwiftArena swiftArena) {
+          org.swift.swiftkit.core._OutSwiftGenericInstance result = new org.swift.swiftkit.core._OutSwiftGenericInstance();
+          FishBox.$make($typeMetadataAddressDowncall(), result);
+          return Box.<Fish>wrapMemoryAddressUnsafe(result.selfPointer, result.selfTypePointer, swiftArena);
+        }
+        private static native void $make(long selfTypePointer, org.swift.swiftkit.core._OutSwiftGenericInstance resultOut);
         """,
       ],
     )
@@ -346,16 +358,17 @@ struct SpecializationTests {
         }
         """,
     )
+    let intType = SwiftKnownTypes(symbolTable: translator.symbolTable).int
 
     let fish = try #require(translator.importedTypes["Fish"])
     #expect(!fish.swiftNominal.isGeneric)
 
     #expect(throws: SpecializationError.self) {
-      _ = try fish.specialize(as: "FancyFish", with: ["T": "Int"])
+      _ = try fish.specialize(as: "FancyFish", with: ["T": intType])
     }
 
     do {
-      _ = try fish.specialize(as: "FancyFish", with: ["T": "Int"])
+      _ = try fish.specialize(as: "FancyFish", with: ["T": intType])
     } catch let error as SpecializationError {
       #expect(error.message.contains("Unable to specialize non-generic type"))
       #expect(error.message.contains("Fish"))
